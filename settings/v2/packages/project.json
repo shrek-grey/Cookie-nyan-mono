@@ -1,0 +1,19 @@
+{
+  "__version__": "1.0.6",
+  "sorting-layer": {
+    "layers": [
+      {
+        "id": 0,
+        "name": "default",
+        "value": 0
+      }
+    ],
+    "increaseId": 1
+  },
+  "physics": {
+    "gravity": {
+      "z": 0
+    }
+  },
+  "custom_joint_texture_layouts": []
+}
