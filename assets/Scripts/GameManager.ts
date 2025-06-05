@@ -5,13 +5,16 @@ const { ccclass, property } = _decorator;
 
 @ccclass('GameManager')
 export class GameManager extends Component {
-  @property(Label)
-  currentLevelLabel: Label | null = null;
+    @property(Label)
+    currentLevelLabel: Label | null = null;
 
-  start() {
-    const currentLevel = StorageManager.load<string>('currentLevel') || '1';
-    if (this.currentLevelLabel) {
-      this.currentLevelLabel.string = `Level ${currentLevel}`;
+    start() {
+        if(StorageManager.load<string>('currentLevel') === null) {
+            StorageManager.save('currentLevel', '1'); // Initialize currentLevel if not set
+        }
+        const currentLevel = StorageManager.load<string>;
+        if (this.currentLevelLabel) {
+            this.currentLevelLabel.string = `Level ${currentLevel}`;
+        }
     }
-  }
 }
