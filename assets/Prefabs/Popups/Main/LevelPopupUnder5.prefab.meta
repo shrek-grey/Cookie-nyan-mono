@@ -2,12 +2,12 @@
   "ver": "1.1.50",
   "importer": "prefab",
   "imported": true,
-  "uuid": "fe14e5f9-442b-4feb-b2f3-f19c17948c26",
+  "uuid": "e2fbc76d-6028-47c1-80cf-d37f994be272",
   "files": [
     ".json"
   ],
   "subMetas": {},
   "userData": {
-    "syncNodeName": "TutorialPopup_Item_1"
+    "syncNodeName": "LevelPopupUnder5"
   }
 }

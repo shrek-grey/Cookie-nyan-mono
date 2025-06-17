@@ -5,7 +5,8 @@ const { ccclass, property } = _decorator;
 export class PopupManager extends Component {
     @property(Prefab)
     levelPopupPrefab: Prefab | null = null;
-    private currentPopup: Node | null = null;
+
+    public currentPopup: Node | null = null;
 
     start() {
     }
@@ -31,5 +32,4 @@ export class PopupManager extends Component {
         }
     }
 }
-
 

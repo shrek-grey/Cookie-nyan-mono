@@ -10,7 +10,7 @@ export class GameManager extends Component {
 
     start() {
         if(StorageManager.load<string>('currentLevel') === null) {
-            StorageManager.save('currentLevel', '1'); // Initialize currentLevel if not set
+            StorageManager.save('currentLevel', 1); // Initialize currentLevel if not set
         }
         const currentLevel = StorageManager.load<string>('currentLevel');
         if (this.currentLevelLabel) {
