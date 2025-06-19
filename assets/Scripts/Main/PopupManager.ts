@@ -1,35 +1,85 @@
 import { _decorator, Component, Prefab, Node, instantiate } from 'cc';
+import StorageManager from '../StorageManager';
+import { ZoomPopup } from '../Effect/Animation/ZoomPopup';
 const { ccclass, property } = _decorator;
 
 @ccclass('PopupManager')
 export class PopupManager extends Component {
-    @property(Prefab)
-    levelPopupPrefab: Prefab | null = null;
+    @property(Node)
+    overlay: Node | null = null;
+
+    @property(Node)
+    levelView: Node | null = null;
+
+    @property(Node)
+    levelPopup: Node | null = null;
+
+    @property(Node)
+    levelPopup_under_5: Node | null = null;
 
     public currentPopup: Node | null = null;
 
-    start() {
+    showLevelViewPopup() {
+        console.log("showLevelViewPopup called");
+        if (this.levelView) {
+            const popup = this.levelView.getComponent(ZoomPopup);
+            popup.show();
+
+        } else {
+            console.warn('LevelView Popup prefab is not assigned.');
+        }
+        this.overlay.active = true;
     }
 
-    update(deltaTime: number) {
-        
+
+    showLevelPopup_open(_: Event, level: string) {
+        console.log("showLevelPopup_open called with level:", level);
+        let currentLevel = StorageManager.load<number>('currentLevel') ? StorageManager.load<number>('currentLevel') : StorageManager.load<number>('lastLevel');
+        if (level) {
+            StorageManager.save('currentLevel', parseInt(level));
+            currentLevel = parseInt(level);
+            const popup = this.levelView.getComponent(ZoomPopup);
+            popup.hide();
+        }
+        if (currentLevel < 5) {
+            this.showLevelPopup_under_5();
+        }
+        else if (currentLevel >= 5) {
+            this.showLevelPopup();
+        }
+        this.overlay.active = true;
     }
-    showPopup() {
-        if (this.levelPopupPrefab) {
-            this.currentPopup = instantiate(this.levelPopupPrefab);
-            this.node.addChild(this.currentPopup);
-            this.currentPopup.setPosition(0, 0, 0); // Center the popup
+    showLevelPopup() {
+        if (this.levelPopup) {
+            const popup = this.levelPopup.getComponent(ZoomPopup);
+            popup.show();
         } else {
-            console.warn('Popup prefab is not assigned.');
+            console.warn('Level popup prefab is not assigned.');
         }
     }
+    showLevelPopup_under_5() {
+        if (this.levelPopup_under_5) { 
+            const popup = this.levelPopup_under_5.getComponent(ZoomPopup);
+            popup.show();
+        } else {
+            console.warn('Level popup prefab is not assigned.');
+        }
+    }
+
     closePopup() {
-        if (this.currentPopup) {
-            this.currentPopup.destroy();
-            this.currentPopup = null;
-        } else {
-            console.warn('No popup to close.');
+        if (this.levelView) {
+            const popup = this.levelView.getComponent(ZoomPopup);
+            popup.hide();
         }
+        if (this.levelPopup) {
+            const popup = this.levelPopup.getComponent(ZoomPopup);
+            popup.hide();
+        }
+        if (this.levelPopup_under_5) {
+            const popup = this.levelPopup_under_5.getComponent(ZoomPopup);
+            popup.hide();
+        }
+        this.overlay.active = false;
     }
 }
 
