@@ -2,7 +2,6 @@
 // It handles loading level data, rendering the level items, and displaying the level popup UI.
 
 import { _decorator, Component, Node, instantiate, Label, Prefab, Sprite, SpriteFrame } from 'cc';
-import { PopupManager } from '../../Main/PopupManager';
 import { loadLevelFile, LevelData } from '../../Utils/LevelUtils';
 const { ccclass, property } = _decorator;
 
@@ -69,8 +68,9 @@ export class LevelPopup extends Component {
         console.log("goals:", goals);
         // Generate the items for the level based on the goals.
         // This assumes that goals.GOAL_BLOCK is an array of arrays, where each sub-array contains a sprite index and a count.
-        if (goals.GOAL_BLOCK.length != 1 && goals.GOAL_BLOCK[0].length != 1) {
-            goals.GOAL_BLOCK.forEach((goal: number[]) => {
+        goals.GOAL_BLOCK.forEach((goal: number[]) => {
+            console.log('goal', goal);
+            if (goal.length >= 2) {
                 const itemNode = instantiate(this.item);
                 const cookieNode = itemNode.getChildByName('Cookie');
                 if (cookieNode) {
@@ -92,13 +92,13 @@ export class LevelPopup extends Component {
                     }
                 }
                 this.items.addChild(itemNode);
-            });
-        }
+            }
+        });
         const goalConfigs = [
-            { value: goals.GOAL_BISCUIT, spriteIndex: 5 },
-            { value: goals.GOAL_OBSTACLE, spriteIndex: 6 },
-            { value: goals.GOAL_DOWN, spriteIndex: 7 },
-            { value: goals.GOAL_CREAM, spriteIndex: 8 },
+            { value: goals.GOAL_BISCUIT, spriteIndex: 9 },
+            { value: goals.GOAL_OBSTACLE, spriteIndex: 10 },
+            { value: goals.GOAL_DOWN, spriteIndex: 11 },
+            { value: goals.GOAL_CREAM, spriteIndex: 12 },
         ];
 
         for (const config of goalConfigs) {
@@ -108,10 +108,10 @@ export class LevelPopup extends Component {
     }
 
     start() {
-        const currentLevel = JSON.parse(localStorage.getItem('currentLevel')) ? JSON.parse(localStorage.getItem('currentLevel')) : JSON.parse(localStorage.getItem('lastLevel'));
+        const currentLevel = JSON.parse(localStorage.getItem('currentLevel'));
         if (this.currentLevelLabel) {
             this.currentLevelLabel.string = `Level ${currentLevel}`;
-            this.startLevel(10);
+            this.startLevel(currentLevel);
         }
     }
 

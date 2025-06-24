@@ -19,10 +19,16 @@ export class PopupManager extends Component {
 
     public currentPopup: Node | null = null;
 
+    private levelPopupClone: Node | null = null;
+    private levelPopupUnder5Clone: Node | null = null;
+    private levelViewClone: Node | null = null;
+
     showLevelViewPopup() {
         console.log("showLevelViewPopup called");
         if (this.levelView) {
-            const popup = this.levelView.getComponent(ZoomPopup);
+            this.levelViewClone = instantiate(this.levelView);
+            this.node.addChild(this.levelViewClone);
+            const popup = this.levelViewClone.getComponent(ZoomPopup);
             popup.show();
 
         } else {
@@ -34,8 +40,14 @@ export class PopupManager extends Component {
 
     showLevelPopup_open(_: Event, level: string) {
         console.log("showLevelPopup_open called with level:", level);
-        let currentLevel = StorageManager.load<number>('currentLevel') ? StorageManager.load<number>('currentLevel') : StorageManager.load<number>('lastLevel');
+        let currentLevel: number;
+        if(!level) {
+            console.log("current level is last level:", JSON.parse(StorageManager.load<string>('lastLevel')));
+            currentLevel = parseInt(JSON.parse(StorageManager.load<string>('lastLevel')));
+            StorageManager.save('currentLevel', currentLevel);
+        }
         if (level) {
+            console.log("current level is:", parseInt(level));
             StorageManager.save('currentLevel', parseInt(level));
             currentLevel = parseInt(level);
             const popup = this.levelView.getComponent(ZoomPopup);
@@ -51,7 +63,9 @@ export class PopupManager extends Component {
     }
     showLevelPopup() {
         if (this.levelPopup) {
-            const popup = this.levelPopup.getComponent(ZoomPopup);
+            this.levelPopupClone = instantiate(this.levelPopup);
+            this.node.addChild(this.levelPopupClone);
+            const popup = this.levelPopupClone.getComponent(ZoomPopup);
             popup.show();
         } else {
             console.warn('Level popup prefab is not assigned.');
@@ -59,7 +73,9 @@ export class PopupManager extends Component {
     }
     showLevelPopup_under_5() {
         if (this.levelPopup_under_5) { 
-            const popup = this.levelPopup_under_5.getComponent(ZoomPopup);
+            this.levelPopupUnder5Clone = instantiate(this.levelPopup_under_5);
+            this.node.addChild(this.levelPopupUnder5Clone);
+            const popup = this.levelPopupUnder5Clone.getComponent(ZoomPopup);
             popup.show();
         } else {
             console.warn('Level popup prefab is not assigned.');
@@ -67,19 +83,30 @@ export class PopupManager extends Component {
     }
 
     closePopup() {
-        if (this.levelView) {
-            const popup = this.levelView.getComponent(ZoomPopup);
-            popup.hide();
+        if (this.levelViewClone && this.levelViewClone.isValid) {
+            const popup = this.levelViewClone.getComponent(ZoomPopup);
+            popup?.hide();
+            this.levelViewClone.destroy();
+            this.levelViewClone = null;
         }
-        if (this.levelPopup) {
-            const popup = this.levelPopup.getComponent(ZoomPopup);
-            popup.hide();
+    
+        if (this.levelPopupClone && this.levelPopupClone.isValid) {
+            const popup = this.levelPopupClone.getComponent(ZoomPopup);
+            popup?.hide();
+            this.levelPopupClone.destroy();
+            this.levelPopupClone = null;
         }
-        if (this.levelPopup_under_5) {
-            const popup = this.levelPopup_under_5.getComponent(ZoomPopup);
-            popup.hide();
+    
+        if (this.levelPopupUnder5Clone && this.levelPopupUnder5Clone.isValid) {
+            const popup = this.levelPopupUnder5Clone.getComponent(ZoomPopup);
+            popup?.hide();
+            this.levelPopupUnder5Clone.destroy();
+            this.levelPopupUnder5Clone = null;
         }
-        this.overlay.active = false;
+    
+        if (this.overlay) {
+            this.overlay.active = false;
+        }
     }
 }
 

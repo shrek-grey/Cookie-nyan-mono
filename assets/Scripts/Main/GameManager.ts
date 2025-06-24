@@ -11,9 +11,10 @@ export class GameManager extends Component {
     sceneToLoad: string = 'Game'; 
 
     start() {
-        if(StorageManager.load<string>('lastLevel') === null) {
-            StorageManager.save('lastLevel', 1); // Initialize currentLevel if not set
-        }
+        // if(StorageManager.load<string>('lastLevel') === null) {
+        //     StorageManager.save('lastLevel', 10); // Initialize currentLevel if not set
+        // }
+        StorageManager.save('lastLevel', 10);
         const lastLevel = StorageManager.load<string>('lastLevel');
         if (this.lastLevelLabel) {
             this.lastLevelLabel.string = `Level ${lastLevel}`;
