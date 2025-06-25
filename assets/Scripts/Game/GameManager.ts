@@ -1,6 +1,6 @@
 import {
     _decorator, Color, Component, director, EventTouch, instantiate, Label, Layout, Node, Prefab,
-    Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3
+    Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec2, Vec3
 } from 'cc';
 import { LevelData, loadLevelFile } from '../Utils/LevelUtils';
 // import { drawGridTilesWithRoundedEdges } from './GamePanelManager'
@@ -23,6 +23,7 @@ export class GameManager extends Component {
     @property(Node) blackPanel: Node = null;
     @property(Node) gamePanel: Node = null;
     @property(Node) cubeItem: Node | null = null; // Prefab for cube item in the game panel
+    @property(Prefab) cookieItem: Prefab | null = null;
     @property(Prefab) tutorialLevel1Prefab: Prefab | null = null; // Prefab for tutorial level 1
     @property(Prefab) tutorialLevel2Prefab: Prefab | null = null; // Prefab for tutorial level 2
     @property(Prefab) tutorialLevel3Prefab: Prefab | null = null; // Prefab for tutorial level 3
@@ -43,15 +44,15 @@ export class GameManager extends Component {
     private currentGameState: number[][] = []; // 2D array representing the current game state (grid)
     private currentMapState: number[][] = []; // 2D array representing the current map state (grid)
 
+    private dragStartGrid: { row: number, col: number } | null = null;
+    private swapPerformed: boolean = false;
+
 
     // Called when component starts
     start() {
         // Get current level number from localStorage or default to 1
         const currentLevel = JSON.parse(localStorage.getItem('currentLevel') || '1');
-        console.log("Current Level:", currentLevel);
         this.startLevel(currentLevel);
-        this.blackPanel?.on(Node.EventType.TOUCH_END, this.onBlackPanelClick, this);
-        this.blackPanel?.on(Node.EventType.TOUCH_END, this.onBlackPanelClick, this);
     }
 
     /**
@@ -59,7 +60,6 @@ export class GameManager extends Component {
      * @param levelNumber Number of the level to load
      */
     startLevel(levelNumber: number) {
-        console.log("Starting level:", levelNumber);
 
         loadLevelFile(levelNumber)
             .then(data => {
@@ -78,6 +78,7 @@ export class GameManager extends Component {
                         }, 0.1);
                     });
                 }, 0.5);
+                this.blackPanel?.on(Node.EventType.TOUCH_END, this.onBlackPanelClick, this);
             })
             .catch(err => console.error("Failed to load level:", err));
     }
@@ -238,7 +239,7 @@ export class GameManager extends Component {
         }
         const currentLevel = JSON.parse(localStorage.getItem('currentLevel') || '1');
         this.fillRandomCookiesWithoutMatch3(this.currentGameState, currentLevel);
-        console.log(this.currentGameState)
+
 
 
 
@@ -251,7 +252,6 @@ export class GameManager extends Component {
         if (Array.isArray(goals.GOAL_BLOCK)) {
             for (const goal of goals.GOAL_BLOCK) {
                 if (goal.length >= 2) {
-                    console.log('goal', goal)
                     const [spriteIndex, count] = goal;
                     this.createGoalItem(count, spriteIndex, this.items, 1);
                     this.createGoalItem(count, spriteIndex, this.blockItems, 1.6);
@@ -394,9 +394,7 @@ export class GameManager extends Component {
                 else if (!left) index = 1;            // left
                 else if (!right) index = 2;           // right
 
-                const sprite = background.getComponent(Sprite);
-                // console.log('sprite', sprite, 'index', index, 'cubeBackgroundFrames', this.cubeBackgroundFrames);
-                if (sprite) {
+                const sprite = background.getComponent(Sprite);if (sprite) {
                     sprite.spriteFrame = this.cubeBackgroundFrames[index];
                     const gridNode = cubeItem.getChildByName('Grid');
                     const gridSprite = gridNode?.getComponent(Sprite);
@@ -437,7 +435,6 @@ export class GameManager extends Component {
     }
 
     fadeInGamePanel(onComplete?: () => void) {
-        console.log("levelData Grid:", this.currentLevelData?.grid);
         const gameOpacity = this.gamePanel.getComponent(UIOpacity) || this.gamePanel.addComponent(UIOpacity);
         const gamePos = this.gamePanel.position.clone();
 
@@ -472,86 +469,432 @@ export class GameManager extends Component {
         director.loadScene('Main');
     }
 
+
+    /**
+     * Attach touch listeners to game panel.
+     */
     initCookieDrag() {
+        this.gamePanel.on(Node.EventType.TOUCH_START, this.onCookieTouchStart, this);
+        this.gamePanel.on(Node.EventType.TOUCH_MOVE, this.onCookieTouchMove, this);
+        this.gamePanel.on(Node.EventType.TOUCH_END, this.onCookieTouchEnd, this);
+    }
+
+    /**
+     * Handle initial cookie touch.
+     */
+    onCookieTouchStart(event: EventTouch) {
+        const uiPos = event.getUILocation(); // Vec2
+        this.dragStartGrid = this.getGridIndexFromPosition(uiPos);
+
+        this.swapPerformed = false;
+    }
+
+    /**
+     * Handle dragging motion and swap if moved into neighbor.
+     */
+    onCookieTouchMove(event: EventTouch) {
+        if (!this.dragStartGrid || this.swapPerformed) return;
+
+        const currentPos = event.getUILocation();
+        const currentGrid = this.getGridIndexFromPosition(currentPos);
+        if (!currentGrid) return;
+
+        const { row: r1, col: c1 } = this.dragStartGrid;
+        const { row: r2, col: c2 } = currentGrid;
+        if(currentGrid && r1 && c1) {
+            if(this.currentGameState[r1][c1] === 1 || this.currentGameState[r2][c2] === 1) return;
+            if(this.currentMapState[r1-8][c1] === 6  || this.currentMapState[r2-8][c2] === 6) return;
+            if(this.currentMapState[r1-8][c1] === 8 || this.currentMapState[r2-8][c2] === 8) return;
+        }
+        // If adjacent and not same
+        if ((Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1) {
+            this.swapCookies(r1, c1, r2, c2);
+            this.swapPerformed = true;
+        }
+
+    }
+
+
+    /**
+     * Handle touch end and reset drag state.
+     */
+    onCookieTouchEnd(event: EventTouch) {
+        this.dragStartGrid = null;
+        this.swapPerformed = false;
+    }
+
+    /**
+     * Convert UI touch position to grid cell.
+     */
+    getGridIndexFromPosition(uiPos: Vec2): { row: number, col: number } | null {
         for (let row = 8; row < 16; row++) {
             for (let col = 0; col < 8; col++) {
-                this.enableCookieDrag(row, col);
+                const cubeNode = this.gamePanel.getChildByName(`CubeItem_${row}_${col}`);
+                const cookieNode = cubeNode.getChildByName('Cookie');
+                if (!cubeNode || !cubeNode.active) continue;
+                if(!cookieNode || !cookieNode.active) continue;
+
+                const transform = cubeNode.getComponent(UITransform);
+                if (!transform) continue;
+
+                const worldPos = transform.convertToWorldSpaceAR(Vec3.ZERO);
+                const size = transform.contentSize;
+                const halfW = size.width / 2;
+                const halfH = size.height / 2;
+
+                if (
+                    uiPos.x >= worldPos.x - halfW &&
+                    uiPos.x <= worldPos.x + halfW &&
+                    uiPos.y >= worldPos.y - halfH &&
+                    uiPos.y <= worldPos.y + halfH
+                ) {
+                    return { row, col };
+                }
             }
         }
+        return null;
     }
 
-    enableCookieDrag(row: number, col: number) {
-        const nodeName = `CubeItem_${row}_${col}`;
-        const itemNode = this.gamePanel.getChildByName(nodeName);
-        if (!itemNode) return;
 
-        const cookieNode = itemNode.getChildByName('Cookie');
-        if (!cookieNode || !cookieNode.active) return;
+    /**
+     * Swap cookie data and visuals between two grid cells.
+     */
 
-        let startWorldPos: Vec3 | null = null;
-
-        cookieNode.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-            const uiPos = event.getUILocation(); // Vec2
-            startWorldPos = new Vec3(uiPos.x, uiPos.y, 0);
-        });
-
-        cookieNode.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            if (!startWorldPos) return;
-
-            const endWorldPos = event.getUILocation();
-            const deltaX = endWorldPos.x - startWorldPos.x;
-            const deltaY = endWorldPos.y - startWorldPos.y;
-
-            let targetRow = row;
-            let targetCol = col;
-
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                if (deltaX > 50) targetCol++;
-                else if (deltaX < -50) targetCol--;
-            } else {
-                if (deltaY > 50) targetRow--;
-                else if (deltaY < -50) targetRow++;
-            }
-
-            const valid =
-                targetRow >= 8 && targetRow < 16 &&
-                targetCol >= 0 && targetCol < 8 &&
-                !(targetRow === row && targetCol === col);
-
-            if (valid) {
-                this.swapCookies(row, col, targetRow, targetCol);
-            }
-
-            startWorldPos = null;
-        });
-    }
 
     swapCookies(r1: number, c1: number, r2: number, c2: number) {
-        const node1 = this.gamePanel.getChildByName(`CubeItem_${r1}_${c1}`)?.getChildByName('Cookie');
-        const node2 = this.gamePanel.getChildByName(`CubeItem_${r2}_${c2}`)?.getChildByName('Cookie');
+        const cube1 = this.gamePanel.getChildByName(`CubeItem_${r1}_${c1}`);
+        const cube2 = this.gamePanel.getChildByName(`CubeItem_${r2}_${c2}`);
+        if (!cube1 || !cube2) return;
 
-        if (!node1 || !node2) return;
+        const cookie1 = cube1.getChildByName('Cookie');
+        const cookie2 = cube2.getChildByName('Cookie');
+        if (!cookie1 || !cookie2) return;
 
-        const pos1 = node1.position.clone();
-        const pos2 = node2.position.clone();
+        const sp1 = cookie1.getComponent(Sprite);
+        const sp2 = cookie2.getComponent(Sprite);
+        const originalFrame1 = sp1?.spriteFrame;
+        const originalFrame2 = sp2?.spriteFrame;
 
-        // Animate swap
-        tween(node1).to(0.2, { position: pos2 }, { easing: 'quadInOut' }).start();
-        tween(node2).to(0.2, { position: pos1 }, { easing: 'quadInOut' }).start();
+        const originalVal1 = this.currentGameState[r1][c1];
+        const originalVal2 = this.currentGameState[r2][c2];
 
-        // Swap in gameState
-        const temp = this.currentGameState[r1][c1];
-        this.currentGameState[r1][c1] = this.currentGameState[r2][c2];
-        this.currentGameState[r2][c2] = temp;
+        // Swap in memory (simulate swap)
+        this.currentGameState[r1][c1] = originalVal2;
+        this.currentGameState[r2][c2] = originalVal1;
 
-        // Optionally, swap spriteFrame immediately (or after animation)
-        const sprite1 = node1.getComponent(Sprite);
-        const sprite2 = node2.getComponent(Sprite);
-        if (sprite1 && sprite2) {
-            const tempSprite = sprite1.spriteFrame;
-            sprite1.spriteFrame = sprite2.spriteFrame;
-            sprite2.spriteFrame = tempSprite;
+        const hasMatch =
+            this.checkMatchAt(r1, c1) || this.checkMatchAt(r2, c2);
+
+        if (hasMatch) {
+            // ✔ Match → animate and update visuals
+            const targetPos1 = cube1.inverseTransformPoint(new Vec3(), cube2.getWorldPosition());
+            const targetPos2 = cube2.inverseTransformPoint(new Vec3(), cube1.getWorldPosition());
+
+            tween(cookie1).to(0.1, { position: targetPos1 })
+                .call(() => {
+                    if (sp1 && sp2) {
+                        sp1.spriteFrame = originalFrame2!;
+                        sp2.spriteFrame = originalFrame1!;
+                    }
+                    cookie1.setPosition(new Vec3(0, 0, 0));
+                })
+                .start();
+
+            tween(cookie2).to(0.1, { position: targetPos2 })
+                .call(() => {
+                    cookie2.setPosition(new Vec3(0, 0, 0));
+                })
+                .start();
+
+                this.runMatchCycle();
+            // this.scheduleOnce(() => {
+            //     const matched = this.findAllMatches();
+            //     if (matched.length > 0) {
+            //         this.destroyMatchedCookies(matched);
+
+            //         this.scheduleOnce(() => {
+            //             this.dropCookiesDown();
+            //         }, 0.15);
+            //     }
+            // }, 0.15);
+
+        } else {
+            // ✘ No Match → revert memory state
+            this.currentGameState[r1][c1] = originalVal1;
+            this.currentGameState[r2][c2] = originalVal2;
+
+            const pos1 = cookie1.getPosition().clone();
+            const pos2 = cookie2.getPosition().clone();
+
+            const targetPos1 = cube1.inverseTransformPoint(new Vec3(), cube2.getWorldPosition());
+            const targetPos2 = cube2.inverseTransformPoint(new Vec3(), cube1.getWorldPosition());
+
+            // Animate to new positions first
+            tween(cookie1).to(0.1, { position: targetPos1 }).start();
+            tween(cookie2).to(0.1, { position: targetPos2 }).start();
+
+            // Then move back and restore visuals
+            this.scheduleOnce(() => {
+                tween(cookie1)
+                    .to(0.1, { position: pos1 })
+                    .call(() => {
+                        if (sp1) sp1.spriteFrame = originalFrame1;
+                        cookie1.setPosition(pos1);
+                    })
+                    .start();
+
+                tween(cookie2)
+                    .to(0.1, { position: pos2 })
+                    .call(() => {
+                        if (sp2) sp2.spriteFrame = originalFrame2;
+                        cookie2.setPosition(pos2);
+                    })
+                    .start();
+            }, 0.1);
         }
     }
 
+
+
+    checkMatchAt(row: number, col: number): boolean {
+        const value = this.currentGameState[row][col];
+        if (!value || value === 0) return false;
+
+        let count = 1;
+
+        // --- Horizontal check
+        // left
+        let c = col - 1;
+        while (c >= 0 && this.currentGameState[row][c] === value) {
+            count++; c--;
+        }
+        // right
+        c = col + 1;
+        while (c < 8 && this.currentGameState[row][c] === value) {
+            count++; c++;
+        }
+        if (count >= 3) return true;
+
+        // --- Vertical check
+        count = 1;
+        // up
+        let r = row - 1;
+        while (r >= 8 && this.currentGameState[r][col] === value) {
+            count++; r--;
+        }
+        // down
+        r = row + 1;
+        while (r < 16 && this.currentGameState[r][col] === value) {
+            count++; r++;
+        }
+        return count >= 3;
+    }
+
+    findAllMatches(): { row: number, col: number }[] {
+        const matches: { row: number, col: number }[] = [];
+        const visited = new Set<string>();
+    
+        const mark = (r: number, c: number) => {
+            const key = `${r},${c}`;
+            if (!visited.has(key)) {
+                visited.add(key);
+                matches.push({ row: r, col: c });
+            }
+        };
+    
+        const isMatchable = (val: number): boolean => {
+            return val !== 7 && val !== 6 && val !== 8 && val < 30;
+        };
+    
+        // Horizontal
+        for (let row = 8; row < 16; row++) {
+            let col = 0;
+            while (col < 8) {
+                const val = this.currentGameState[row][col];
+                if (!isMatchable(val)) {
+                    col++;
+                    continue;
+                }
+                let end = col + 1;
+                while (end < 8 && this.currentGameState[row][end] === val) end++;
+                if (end - col >= 3) for (let i = col; i < end; i++) mark(row, i);
+                col = end;
+            }
+        }
+    
+        // Vertical
+        for (let col = 0; col < 8; col++) {
+            let row = 8;
+            while (row < 16) {
+                const val = this.currentGameState[row][col];
+                if (!isMatchable(val)) {
+                    row++;
+                    continue;
+                }
+                let end = row + 1;
+                while (end < 16 && this.currentGameState[end][col] === val) end++;
+                if (end - row >= 3) for (let i = row; i < end; i++) mark(i, col);
+                row = end;
+            }
+        }
+    
+        // Square (2x2)
+        for (let row = 8; row < 15; row++) {
+            for (let col = 0; col < 7; col++) {
+                const val = this.currentGameState[row][col];
+                if (!isMatchable(val)) continue;
+                if (
+                    this.currentGameState[row][col + 1] === val &&
+                    this.currentGameState[row + 1][col] === val &&
+                    this.currentGameState[row + 1][col + 1] === val
+                ) {
+                    mark(row, col);
+                    mark(row, col + 1);
+                    mark(row + 1, col);
+                    mark(row + 1, col + 1);
+                }
+            }
+        }
+    
+        return matches;
+    }
+
+    destroyMatchedCookies(matched: { row: number, col: number }[]): Promise<void> {
+        return new Promise((resolve) => {
+            let completed = 0;
+            const total = matched.length;
+    
+            if (total === 0) return resolve();
+    
+            for (const { row, col } of matched) {
+                const cube = this.gamePanel.getChildByName(`CubeItem_${row}_${col}`);
+                if (!cube) {
+                    completed++;
+                    if (completed === total) resolve();
+                    continue;
+                }
+                const cookie = cube.getChildByName('Cookie');
+                if (cookie) {
+                    tween(cookie)
+                        .to(0.2, { scale: new Vec3(0, 0, 0) })
+                        .call(() => {
+                            cookie.destroy();
+                            this.currentGameState[row][col] = 7;
+                            completed++;
+                            if (completed === total) resolve();
+                        })
+                        .start();
+                } else {
+                    this.currentGameState[row][col] = 7;
+                    completed++;
+                    if (completed === total) resolve();
+                }
+            }
+        });
+    }
+    async dropCookiesDown(): Promise<boolean> {
+        const dropAnims: Promise<void>[] = [];
+        let moved = false;
+    
+        for (let col = 0; col < 8; col++) {
+            for (let row = 15; row >= 8; row--) {
+                if (this.currentGameState[row][col] !== 7) continue;
+    
+                let sourceRow = row - 1;
+                while (sourceRow >= 0) {
+                    const val = this.currentGameState[sourceRow][col];
+                    if (val !== 7 && val !== 1) {
+                        // 💾 Update data
+                        this.currentGameState[row][col] = val;
+                        this.currentGameState[sourceRow][col] = 7;
+    
+                        const sourceCube = this.gamePanel.getChildByName(`CubeItem_${sourceRow}_${col}`);
+                        const targetCube = this.gamePanel.getChildByName(`CubeItem_${row}_${col}`);
+                        const cookieNode = sourceCube?.getChildByName('Cookie');
+    
+                        if (cookieNode && targetCube) {
+                            const worldPos = cookieNode.getWorldPosition();
+                            cookieNode.setParent(targetCube);
+                            const localPos = targetCube.getComponent(UITransform)?.convertToNodeSpaceAR(worldPos) || new Vec3(0, 0, 0);
+                            cookieNode.setPosition(localPos);
+    
+                            // 🟢 FIX: Always activate before drop
+                            cookieNode.active = true;
+    
+                            // 📦 Collect drop animation promise
+                            const anim = new Promise<void>((resolve) => {
+                                tween(cookieNode)
+                                    .to(0.3, { position: new Vec3(0, 0, 0) }, { easing: 'quadIn' })
+                                    .call(() => resolve())
+                                    .start();
+                            });
+                            dropAnims.push(anim);
+                        }
+    
+                        moved = true;
+                        break;
+                    }
+                    sourceRow--;
+                }
+            }
+        }
+    
+        // 🔁 Wait for all animations to finish together
+        await Promise.all(dropAnims);
+        return moved;
+    }
+
+    fillAbovePanelAfterDrop(): Promise<void> {
+        return new Promise((resolve) => {
+            const currentLevel = JSON.parse(localStorage.getItem('currentLevel') || '1');
+            const pool = this.getPossibleCookiesForLevel(currentLevel);
+    
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    if (this.currentGameState[row][col] !== 7) continue;
+    
+                    const avoid = new Set<number>();
+                    if (col >= 2 && this.currentGameState[row][col - 1] === this.currentGameState[row][col - 2])
+                        avoid.add(this.currentGameState[row][col - 1]);
+                    if (row >= 2 && this.currentGameState[row - 1][col] === this.currentGameState[row - 2][col])
+                        avoid.add(this.currentGameState[row - 1][col]);
+                    if (
+                        row >= 1 && col >= 1 &&
+                        this.currentGameState[row - 1][col - 1] === this.currentGameState[row - 1][col] &&
+                        this.currentGameState[row - 1][col] === this.currentGameState[row][col - 1]
+                    ) {
+                        avoid.add(this.currentGameState[row - 1][col]);
+                    }
+    
+                    const candidates = pool.filter(v => !avoid.has(v));
+                    const chosen = candidates.length > 0
+                        ? candidates[Math.floor(Math.random() * candidates.length)]
+                        : pool[Math.floor(Math.random() * pool.length)];
+    
+                    this.currentGameState[row][col] = chosen;
+    
+                    const cubeNode = this.gamePanel.getChildByName(`CubeItem_${row}_${col}`);
+                    if (!cubeNode.getChildByName('Cookie')) {
+                        const cookieNode = instantiate(this.cookieItem);
+                        cookieNode.active = false;
+                        cookieNode.getComponent(Sprite).spriteFrame = this.spriteFrames[chosen - 10];
+                        cubeNode.addChild(cookieNode);
+                    }
+                }
+            }
+    
+            resolve();
+        });
+    }
+
+    async runMatchCycle() {
+        while (true) {
+            const matches = this.findAllMatches();
+            if (matches.length === 0) break;
+    
+            await this.destroyMatchedCookies(matches);
+            await this.dropCookiesDown();
+            await this.fillAbovePanelAfterDrop();
+        }
+    }
 }

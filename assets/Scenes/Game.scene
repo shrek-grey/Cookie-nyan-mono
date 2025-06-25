@@ -8857,6 +8857,10 @@
     "cubeItem": {
       "__id__": 312
     },
+    "cookieItem": {
+      "__uuid__": "6ef900cf-e2b5-4df1-9445-4be9af1f3d09",
+      "__expectedType__": "cc.Prefab"
+    },
     "tutorialLevel1Prefab": null,
     "tutorialLevel2Prefab": null,
     "tutorialLevel3Prefab": null,
